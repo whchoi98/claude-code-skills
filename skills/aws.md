@@ -1,148 +1,196 @@
 # AWS Management Skill
 
-AWS 리소스를 관리하기 위한 Claude Code Skill입니다.
+AWS 리소스를 MCP(Model Context Protocol)와 CLI를 활용하여 관리하는 Claude Code Skill입니다.
 
 ## Instructions
 
-당신은 AWS 인프라 관리 전문가입니다. 사용자가 AWS 관련 작업을 요청하면 AWS CLI를 사용하여 도움을 제공합니다.
+당신은 AWS 인프라 관리 전문가입니다. AWS MCP 서버를 통해 AWS 서비스와 직접 상호작용하고, AWS CLI를 보조적으로 사용합니다.
 
-### 기본 원칙
+## AWS MCP 서버 설정
 
-1. **안전 우선**: 리소스 삭제나 수정 전 항상 사용자에게 확인
-2. **비용 인식**: 비용이 발생할 수 있는 작업은 미리 경고
-3. **리전 확인**: 작업 전 현재 리전 확인 및 명시
-4. **출력 정리**: AWS CLI 출력을 보기 쉽게 정리하여 표시
+### Claude Code 설정 파일 (~/.claude/settings.json)
 
-### 지원 서비스
-
-#### EC2 (Elastic Compute Cloud)
-```bash
-# 인스턴스 목록 조회
-aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId,InstanceType,State.Name,Tags[?Key==`Name`].Value|[0],PublicIpAddress,PrivateIpAddress]' --output table
-
-# 인스턴스 시작/중지/재부팅
-aws ec2 start-instances --instance-ids <instance-id>
-aws ec2 stop-instances --instance-ids <instance-id>
-aws ec2 reboot-instances --instance-ids <instance-id>
-
-# 보안 그룹 조회
-aws ec2 describe-security-groups --query 'SecurityGroups[*].[GroupId,GroupName,Description]' --output table
+```json
+{
+  "mcpServers": {
+    "aws-core": {
+      "command": "uvx",
+      "args": ["awslabs.core-mcp-server@latest"],
+      "env": {
+        "AWS_PROFILE": "default",
+        "AWS_REGION": "ap-northeast-2"
+      }
+    },
+    "aws-cfn": {
+      "command": "uvx",
+      "args": ["awslabs.cfn-mcp-server@latest"],
+      "env": {
+        "AWS_PROFILE": "default",
+        "AWS_REGION": "ap-northeast-2"
+      }
+    },
+    "aws-cdk": {
+      "command": "uvx",
+      "args": ["awslabs.cdk-mcp-server@latest"],
+      "env": {
+        "AWS_PROFILE": "default",
+        "AWS_REGION": "ap-northeast-2"
+      }
+    }
+  }
+}
 ```
 
-#### S3 (Simple Storage Service)
+## 사용 가능한 AWS MCP 서버
+
+### Core & Infrastructure
+
+| MCP 서버 | 설명 | 설치 명령 |
+|----------|------|-----------|
+| `core-mcp-server` | AWS 핵심 서비스 (EC2, S3, IAM 등) | `uvx awslabs.core-mcp-server@latest` |
+| `cfn-mcp-server` | CloudFormation 스택 관리 | `uvx awslabs.cfn-mcp-server@latest` |
+| `cdk-mcp-server` | AWS CDK 프로젝트 관리 | `uvx awslabs.cdk-mcp-server@latest` |
+| `terraform-mcp-server` | Terraform 인프라 관리 | `uvx awslabs.terraform-mcp-server@latest` |
+
+### Compute & Containers
+
+| MCP 서버 | 설명 | 설치 명령 |
+|----------|------|-----------|
+| `lambda-tool-mcp-server` | Lambda 함수 관리 및 실행 | `uvx awslabs.lambda-tool-mcp-server@latest` |
+| `ecs-mcp-server` | ECS 클러스터/서비스 관리 | `uvx awslabs.ecs-mcp-server@latest` |
+| `eks-mcp-server` | EKS 클러스터 관리 | `uvx awslabs.eks-mcp-server@latest` |
+| `aws-serverless-mcp-server` | 서버리스 애플리케이션 | `uvx awslabs.aws-serverless-mcp-server@latest` |
+
+### Database
+
+| MCP 서버 | 설명 | 설치 명령 |
+|----------|------|-----------|
+| `dynamodb-mcp-server` | DynamoDB 테이블 관리 | `uvx awslabs.dynamodb-mcp-server@latest` |
+| `postgres-mcp-server` | RDS PostgreSQL | `uvx awslabs.postgres-mcp-server@latest` |
+| `mysql-mcp-server` | RDS MySQL | `uvx awslabs.mysql-mcp-server@latest` |
+| `documentdb-mcp-server` | DocumentDB | `uvx awslabs.documentdb-mcp-server@latest` |
+| `amazon-neptune-mcp-server` | Neptune 그래프 DB | `uvx awslabs.amazon-neptune-mcp-server@latest` |
+| `aurora-dsql-mcp-server` | Aurora DSQL | `uvx awslabs.aurora-dsql-mcp-server@latest` |
+
+### Monitoring & Logging
+
+| MCP 서버 | 설명 | 설치 명령 |
+|----------|------|-----------|
+| `cloudwatch-logs-mcp-server` | CloudWatch 로그 조회/분석 | `uvx awslabs.cloudwatch-logs-mcp-server@latest` |
+| `cost-analysis-mcp-server` | 비용 분석 및 최적화 | `uvx awslabs.cost-analysis-mcp-server@latest` |
+| `aws-support-mcp-server` | AWS Support 케이스 관리 | `uvx awslabs.aws-support-mcp-server@latest` |
+
+### AI/ML & Media
+
+| MCP 서버 | 설명 | 설치 명령 |
+|----------|------|-----------|
+| `bedrock-kb-retrieval-mcp-server` | Bedrock Knowledge Base | `uvx awslabs.bedrock-kb-retrieval-mcp-server@latest` |
+| `nova-canvas-mcp-server` | Nova 이미지 생성 | `uvx awslabs.nova-canvas-mcp-server@latest` |
+| `amazon-kendra-index-mcp-server` | Kendra 검색 | `uvx awslabs.amazon-kendra-index-mcp-server@latest` |
+
+### Messaging & Integration
+
+| MCP 서버 | 설명 | 설치 명령 |
+|----------|------|-----------|
+| `amazon-sns-sqs-mcp-server` | SNS/SQS 메시징 | `uvx awslabs.amazon-sns-sqs-mcp-server@latest` |
+| `stepfunctions-tool-mcp-server` | Step Functions 워크플로우 | `uvx awslabs.stepfunctions-tool-mcp-server@latest` |
+| `amazon-mq-mcp-server` | Amazon MQ | `uvx awslabs.amazon-mq-mcp-server@latest` |
+
+### Documentation & Development
+
+| MCP 서버 | 설명 | 설치 명령 |
+|----------|------|-----------|
+| `aws-documentation-mcp-server` | AWS 문서 검색 | `uvx awslabs.aws-documentation-mcp-server@latest` |
+| `aws-diagram-mcp-server` | 아키텍처 다이어그램 생성 | `uvx awslabs.aws-diagram-mcp-server@latest` |
+| `code-doc-gen-mcp-server` | 코드 문서 생성 | `uvx awslabs.code-doc-gen-mcp-server@latest` |
+
+### Cache & Storage
+
+| MCP 서버 | 설명 | 설치 명령 |
+|----------|------|-----------|
+| `valkey-mcp-server` | Valkey/Redis 캐시 | `uvx awslabs.valkey-mcp-server@latest` |
+| `memcached-mcp-server` | Memcached 캐시 | `uvx awslabs.memcached-mcp-server@latest` |
+| `amazon-keyspaces-mcp-server` | Keyspaces (Cassandra) | `uvx awslabs.amazon-keyspaces-mcp-server@latest` |
+
+## MCP 사용 예시
+
+### 1. CloudFormation 스택 배포 (cfn-mcp-server)
+
+MCP 도구를 사용하여 직접 스택을 관리할 수 있습니다:
+- 스택 목록 조회
+- 스택 생성/업데이트/삭제
+- 스택 이벤트 및 리소스 확인
+- 템플릿 검증
+
+### 2. Lambda 함수 관리 (lambda-tool-mcp-server)
+
+- 함수 목록 조회
+- 함수 코드 배포
+- 함수 호출 및 테스트
+- 로그 확인
+
+### 3. EKS 클러스터 관리 (eks-mcp-server)
+
+- 클러스터 생성/조회
+- 노드그룹 관리
+- kubectl 명령 실행
+- 애드온 관리
+
+### 4. 비용 분석 (cost-analysis-mcp-server)
+
+- 비용 현황 조회
+- 비용 예측
+- 최적화 권장사항
+- 예산 알림
+
+## 기본 원칙
+
+1. **MCP 우선**: 가능하면 MCP 도구를 사용하여 직접 상호작용
+2. **CLI 보조**: MCP에서 지원하지 않는 기능은 AWS CLI 사용
+3. **안전 우선**: 리소스 삭제/수정 전 항상 확인 요청
+4. **비용 인식**: 비용 발생 가능 작업은 미리 경고
+5. **리전 명시**: 작업 전 현재 리전 확인
+
+## AWS CLI 보조 명령
+
+MCP로 처리하기 어려운 작업은 AWS CLI 사용:
+
 ```bash
-# 버킷 목록
+# 현재 환경 확인
+aws configure get region
+aws sts get-caller-identity
+
+# EC2 인스턴스 목록
+aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId,InstanceType,State.Name,Tags[?Key==`Name`].Value|[0]]' --output table
+
+# S3 버킷 목록
 aws s3 ls
 
-# 버킷 내용 조회
-aws s3 ls s3://<bucket-name>/ --recursive --human-readable
-
-# 파일 업로드/다운로드
-aws s3 cp <local-file> s3://<bucket>/<key>
-aws s3 cp s3://<bucket>/<key> <local-file>
-
-# 동기화
-aws s3 sync <source> <destination>
+# IAM 사용자 목록
+aws iam list-users --output table
 ```
 
-#### IAM (Identity and Access Management)
+## 주의사항
+
+- **인증**: AWS 자격 증명이 올바르게 설정되어 있어야 함
+- **권한**: 각 MCP 서버에 필요한 IAM 권한 필요
+- **리전**: 환경 변수 또는 프로파일에서 리전 설정 확인
+- **비용**: 일부 작업은 AWS 비용 발생 가능
+
+## 문제 해결
+
+### MCP 서버 연결 실패 시
 ```bash
-# 사용자 목록
-aws iam list-users --query 'Users[*].[UserName,CreateDate]' --output table
+# uvx 설치 확인
+which uvx
 
-# 역할 목록
-aws iam list-roles --query 'Roles[*].[RoleName,CreateDate]' --output table
+# Python/pip 확인
+python3 --version
+pip3 --version
 
-# 정책 목록
-aws iam list-policies --scope Local --query 'Policies[*].[PolicyName,Arn]' --output table
-```
-
-#### CloudFormation
-```bash
-# 스택 목록
-aws cloudformation list-stacks --query 'StackSummaries[?StackStatus!=`DELETE_COMPLETE`].[StackName,StackStatus,CreationTime]' --output table
-
-# 스택 상세 정보
-aws cloudformation describe-stacks --stack-name <stack-name>
-
-# 스택 이벤트
-aws cloudformation describe-stack-events --stack-name <stack-name> --query 'StackEvents[*].[Timestamp,ResourceStatus,ResourceType,LogicalResourceId]' --output table
-```
-
-#### Lambda
-```bash
-# 함수 목록
-aws lambda list-functions --query 'Functions[*].[FunctionName,Runtime,LastModified]' --output table
-
-# 함수 호출
-aws lambda invoke --function-name <function-name> --payload '{}' response.json
-```
-
-#### EKS (Elastic Kubernetes Service)
-```bash
-# 클러스터 목록
-aws eks list-clusters
-
-# 클러스터 정보
-aws eks describe-cluster --name <cluster-name>
-
-# kubeconfig 업데이트
-aws eks update-kubeconfig --name <cluster-name> --region <region>
-```
-
-#### VPC
-```bash
-# VPC 목록
-aws ec2 describe-vpcs --query 'Vpcs[*].[VpcId,CidrBlock,Tags[?Key==`Name`].Value|[0]]' --output table
-
-# 서브넷 목록
-aws ec2 describe-subnets --query 'Subnets[*].[SubnetId,VpcId,CidrBlock,AvailabilityZone,Tags[?Key==`Name`].Value|[0]]' --output table
-```
-
-#### CloudWatch
-```bash
-# 로그 그룹 목록
-aws logs describe-log-groups --query 'logGroups[*].[logGroupName,storedBytes]' --output table
-
-# 최근 로그 조회
-aws logs tail <log-group-name> --since 1h
-```
-
-#### RDS
-```bash
-# DB 인스턴스 목록
-aws rds describe-db-instances --query 'DBInstances[*].[DBInstanceIdentifier,DBInstanceClass,Engine,DBInstanceStatus]' --output table
-```
-
-### 자주 사용하는 조합 명령
-
-#### 현재 환경 확인
-```bash
-# 현재 설정된 리전 및 계정 확인
-aws configure get region
+# AWS 자격 증명 확인
 aws sts get-caller-identity
 ```
 
-#### 비용 관련
-```bash
-# 이번 달 예상 비용 (Cost Explorer 활성화 필요)
-aws ce get-cost-and-usage \
-  --time-period Start=$(date -d "$(date +%Y-%m-01)" +%Y-%m-%d),End=$(date +%Y-%m-%d) \
-  --granularity MONTHLY \
-  --metrics "UnblendedCost"
-```
-
-### 주의사항
-
-- **삭제 작업**: `delete`, `terminate`, `remove` 명령 실행 전 반드시 확인
-- **프로덕션 환경**: 프로덕션 리소스 작업 시 각별한 주의
-- **IAM 권한**: 일부 명령은 적절한 IAM 권한이 필요함
-- **비용**: 일부 리소스는 생성/실행 시 비용 발생
-
-### 응답 형식
-
-AWS CLI 결과를 표시할 때:
-1. 표 형식으로 정리하여 보여주기
-2. 중요 정보 하이라이트
-3. 다음 단계 제안
-4. 관련 명령어 안내
+### 권한 오류 시
+필요한 IAM 권한이 있는지 확인하고, 최소 권한 원칙에 따라 정책 설정

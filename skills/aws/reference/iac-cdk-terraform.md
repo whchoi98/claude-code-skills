@@ -2,6 +2,45 @@
 
 AWS CDK와 Terraform을 활용한 인프라 코드화 가이드입니다.
 
+## MCP 서버 설정
+
+IaC 작업을 위해 다음 MCP 서버들을 활용합니다.
+
+### 필수 MCP 서버
+
+```json
+{
+  "mcpServers": {
+    "aws-cdk": {
+      "command": "uvx",
+      "args": ["awslabs.cdk-mcp-server@latest"],
+      "env": { "FASTMCP_LOG_LEVEL": "ERROR" }
+    },
+    "aws-terraform": {
+      "command": "uvx",
+      "args": ["awslabs.terraform-mcp-server@latest"],
+      "env": { "FASTMCP_LOG_LEVEL": "ERROR" }
+    },
+    "aws-cfn": {
+      "command": "uvx",
+      "args": ["awslabs.cfn-mcp-server@latest"],
+      "env": { "FASTMCP_LOG_LEVEL": "ERROR" }
+    }
+  }
+}
+```
+
+### MCP 도구 우선순위
+
+| 작업 | 우선 사용 | 보조 |
+|------|----------|------|
+| CDK 프로젝트 관리 | `aws-cdk` MCP | CLI (`cdk`) |
+| Terraform 관리 | `aws-terraform` MCP | CLI (`terraform`) |
+| CloudFormation 스택 | `aws-cfn` MCP | CLI (`aws cloudformation`) |
+| 리소스 조회 | `aws-core` MCP | AWS CLI |
+
+---
+
 ## IaC 도구 비교
 
 | 항목 | CloudFormation | AWS CDK | Terraform |
@@ -588,48 +627,241 @@ variable "db_password" {
 
 ---
 
-## 4. MCP 서버 활용
+## 4. MCP 서버 상세 활용
 
-### CDK MCP 서버
+### 4.1 CDK MCP 서버 (`aws-cdk`)
 
-```json
-{
-  "mcpServers": {
-    "aws-cdk": {
-      "command": "uvx",
-      "args": ["awslabs.cdk-mcp-server@latest"],
-      "env": {
-        "FASTMCP_LOG_LEVEL": "ERROR"
-      }
-    }
-  }
-}
+#### 제공 도구
+
+| 도구 | 설명 | 사용 예시 |
+|------|------|----------|
+| `cdk_list_stacks` | 프로젝트의 스택 목록 조회 | 배포 전 스택 확인 |
+| `cdk_synth` | CloudFormation 템플릿 생성 | 템플릿 미리보기 |
+| `cdk_diff` | 현재 상태와 변경사항 비교 | 배포 전 영향 확인 |
+| `cdk_deploy` | 스택 배포 | 인프라 생성/업데이트 |
+| `cdk_destroy` | 스택 삭제 | 리소스 정리 |
+| `cdk_bootstrap` | CDK 부트스트랩 | 환경 초기 설정 |
+| `cdk_context` | 컨텍스트 값 조회 | 설정 확인 |
+
+#### MCP 활용 워크플로우
+
+```
+1. 프로젝트 분석
+   └── MCP: cdk_list_stacks → 스택 구조 파악
+
+2. 변경사항 확인
+   └── MCP: cdk_diff → 배포 전 변경 내용 검토
+
+3. 템플릿 생성
+   └── MCP: cdk_synth → CloudFormation 템플릿 확인
+
+4. 배포
+   └── MCP: cdk_deploy → 스택 배포 실행
+
+5. 검증
+   └── MCP: aws-cfn으로 스택 상태 확인
 ```
 
-주요 기능:
-- CDK 프로젝트 분석
-- 스택 구조 파악
-- Construct 추천
-- 코드 생성 지원
+#### 사용 예시
 
-### Terraform MCP 서버
+```
+사용자: "현재 CDK 프로젝트의 스택 목록을 보여줘"
+→ MCP aws-cdk: cdk_list_stacks 도구 사용
 
-```json
-{
-  "mcpServers": {
-    "aws-terraform": {
-      "command": "uvx",
-      "args": ["awslabs.terraform-mcp-server@latest"],
-      "env": {
-        "FASTMCP_LOG_LEVEL": "ERROR"
-      }
-    }
-  }
-}
+사용자: "VpcStack을 배포하기 전에 변경사항을 확인해줘"
+→ MCP aws-cdk: cdk_diff --stack VpcStack 도구 사용
+
+사용자: "VpcStack을 배포해줘"
+→ MCP aws-cdk: cdk_deploy --stack VpcStack 도구 사용
 ```
 
-주요 기능:
-- Terraform 코드 분석
-- Plan/Apply 지원
-- 상태 파일 조회
-- 모듈 추천
+---
+
+### 4.2 Terraform MCP 서버 (`aws-terraform`)
+
+#### 제공 도구
+
+| 도구 | 설명 | 사용 예시 |
+|------|------|----------|
+| `terraform_init` | 프로젝트 초기화 | 프로바이더 다운로드 |
+| `terraform_plan` | 실행 계획 생성 | 변경사항 미리보기 |
+| `terraform_apply` | 변경사항 적용 | 리소스 생성/수정 |
+| `terraform_destroy` | 리소스 삭제 | 인프라 정리 |
+| `terraform_show` | 현재 상태 표시 | 상태 파일 조회 |
+| `terraform_state_list` | 상태 리소스 목록 | 관리 리소스 확인 |
+| `terraform_output` | 출력값 조회 | 배포 결과 확인 |
+| `terraform_validate` | 구문 검증 | 코드 오류 확인 |
+| `terraform_fmt` | 코드 포맷팅 | 스타일 통일 |
+
+#### MCP 활용 워크플로우
+
+```
+1. 초기화
+   └── MCP: terraform_init → 프로바이더 설치
+
+2. 코드 검증
+   └── MCP: terraform_validate → 구문 오류 확인
+   └── MCP: terraform_fmt → 코드 정리
+
+3. 계획 수립
+   └── MCP: terraform_plan → 변경 계획 검토
+
+4. 적용
+   └── MCP: terraform_apply → 리소스 생성
+
+5. 결과 확인
+   └── MCP: terraform_output → 출력값 조회
+   └── MCP: terraform_state_list → 생성된 리소스 확인
+```
+
+#### 사용 예시
+
+```
+사용자: "Terraform 프로젝트를 초기화해줘"
+→ MCP aws-terraform: terraform_init 도구 사용
+
+사용자: "변경 계획을 보여줘"
+→ MCP aws-terraform: terraform_plan 도구 사용
+
+사용자: "현재 관리 중인 리소스 목록을 보여줘"
+→ MCP aws-terraform: terraform_state_list 도구 사용
+
+사용자: "VPC ID 출력값을 확인해줘"
+→ MCP aws-terraform: terraform_output -raw vpc_id 도구 사용
+```
+
+---
+
+### 4.3 CloudFormation MCP 서버 (`aws-cfn`)
+
+CDK는 내부적으로 CloudFormation을 사용하므로, 배포된 스택 관리에 `aws-cfn` MCP도 활용합니다.
+
+#### 제공 도구
+
+| 도구 | 설명 | 사용 예시 |
+|------|------|----------|
+| `cfn_list_stacks` | 스택 목록 조회 | 배포된 스택 확인 |
+| `cfn_describe_stack` | 스택 상세 정보 | 스택 상태/출력 확인 |
+| `cfn_list_resources` | 스택 리소스 목록 | 생성된 리소스 확인 |
+| `cfn_get_template` | 스택 템플릿 조회 | 현재 템플릿 확인 |
+| `cfn_list_events` | 스택 이벤트 조회 | 배포 진행/오류 확인 |
+| `cfn_validate_template` | 템플릿 검증 | 문법 오류 확인 |
+
+#### 사용 예시
+
+```
+사용자: "배포된 CloudFormation 스택 목록을 보여줘"
+→ MCP aws-cfn: cfn_list_stacks 도구 사용
+
+사용자: "mgmt-vpc 스택의 리소스들을 보여줘"
+→ MCP aws-cfn: cfn_list_resources --stack-name mgmt-vpc 도구 사용
+
+사용자: "스택 배포 중 오류가 발생했어. 이벤트를 확인해줘"
+→ MCP aws-cfn: cfn_list_events --stack-name <stack-name> 도구 사용
+```
+
+---
+
+### 4.4 MCP 통합 활용 시나리오
+
+#### 시나리오 1: CDK로 새 VPC 생성
+
+```
+1. CDK 프로젝트 분석
+   → MCP aws-cdk: cdk_list_stacks
+
+2. 변경사항 확인
+   → MCP aws-cdk: cdk_diff --stack VpcStack
+
+3. 배포 실행
+   → MCP aws-cdk: cdk_deploy --stack VpcStack
+
+4. 배포 결과 확인
+   → MCP aws-cfn: cfn_describe_stack --stack-name VpcStack
+   → MCP aws-cfn: cfn_list_resources --stack-name VpcStack
+
+5. 실제 리소스 확인
+   → MCP aws-core: VPC, 서브넷 정보 조회
+```
+
+#### 시나리오 2: Terraform으로 EC2 인스턴스 관리
+
+```
+1. 프로젝트 초기화
+   → MCP aws-terraform: terraform_init
+
+2. 코드 검증
+   → MCP aws-terraform: terraform_validate
+
+3. 계획 확인
+   → MCP aws-terraform: terraform_plan
+
+4. 적용
+   → MCP aws-terraform: terraform_apply
+
+5. 결과 확인
+   → MCP aws-terraform: terraform_output
+   → MCP aws-terraform: terraform_state_list
+
+6. 실제 리소스 확인
+   → MCP aws-core: EC2 인스턴스 정보 조회
+```
+
+#### 시나리오 3: 기존 리소스를 Terraform으로 가져오기
+
+```
+1. 현재 리소스 확인
+   → MCP aws-core: 리소스 ID 조회
+
+2. Terraform 코드 작성
+   → 해당 리소스의 .tf 파일 작성
+
+3. Import 실행
+   → CLI: terraform import aws_instance.main i-xxxx
+
+4. 상태 확인
+   → MCP aws-terraform: terraform_state_list
+
+5. 코드와 상태 동기화 확인
+   → MCP aws-terraform: terraform_plan (No changes 확인)
+```
+
+---
+
+### 4.5 CLI vs MCP 선택 기준
+
+| 상황 | 권장 | 이유 |
+|------|------|------|
+| 스택/리소스 조회 | MCP | 구조화된 응답, 빠른 처리 |
+| 배포 실행 | MCP | 진행 상황 모니터링 |
+| 대화형 작업 | CLI | 사용자 입력 필요 시 |
+| 복잡한 파이프라인 | CLI | 스크립트 연동 |
+| 디버깅 | CLI + MCP | 상세 로그 확인 |
+
+### 4.6 문제 해결
+
+#### MCP 서버 연결 오류
+
+```bash
+# uvx 설치 확인
+which uvx
+
+# MCP 서버 수동 테스트
+uvx awslabs.cdk-mcp-server@latest --help
+uvx awslabs.terraform-mcp-server@latest --help
+
+# AWS 자격 증명 확인
+aws sts get-caller-identity
+```
+
+#### CDK/Terraform CLI 오류
+
+```bash
+# CDK 버전 확인
+cdk --version
+cdk doctor
+
+# Terraform 버전 확인
+terraform --version
+terraform providers
+```

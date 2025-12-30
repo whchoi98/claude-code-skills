@@ -19,7 +19,7 @@ Skills can be invoked in Claude Code using `/skill-name` command.
 
 | Skill | Description |
 |-------|-------------|
-| (coming soon) | |
+| [aws](skills/aws.md) | AWS 리소스 관리 (EC2, S3, IAM, CloudFormation, Lambda, EKS 등) |
 
 ## Installation
 

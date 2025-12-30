@@ -156,14 +156,14 @@ MCP 도구를 사용하여 직접 스택을 관리할 수 있습니다:
 
 AWS 모범사례 및 상세 가이드는 다음 문서를 참조하세요:
 
-- **[AWS Best Practices](reference/best-practices.md)**: Well-Architected Framework 기반 모범사례
+- **AWS Best Practices** (`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/best-practices.md`)
   - 보안 (IAM, 네트워크, 데이터 보호)
   - 안정성 (고가용성, 백업/복구)
   - 성능 효율성 (컴퓨팅, 스토리지, 캐싱)
   - 비용 최적화 (절감 전략, 미사용 리소스 정리)
   - 운영 우수성 (IaC, 모니터링)
 
-리소스 생성/수정 시 해당 문서의 체크리스트를 확인하여 모범사례 준수 여부를 검토합니다.
+모범사례 확인이 필요할 때 위 경로의 문서를 Read 도구로 참조합니다.
 
 ## AWS CLI 보조 명령
 

@@ -19,7 +19,8 @@ claude-code-skills/
 │           ├── eks-kubernetes.md     # EKS 클러스터 및 모범사례
 │           ├── networking-vpc.md     # VPC 설계 및 네트워킹
 │           ├── security-iam.md       # IAM, SCP, 보안 서비스
-│           └── serverless.md         # Lambda, API Gateway, Step Functions
+│           ├── serverless.md         # Lambda, API Gateway, Step Functions
+│           └── steampipe.md          # SQL로 AWS 조회, 보안 감사
 ├── scripts/
 │   └── sync-skills.sh                # 스킬 배포 스크립트
 └── README.md
@@ -29,7 +30,7 @@ claude-code-skills/
 
 | 스킬 | 설명 | 참조 문서 |
 |------|------|-----------|
-| [aws](skills/aws/SKILL.md) | AWS 인프라 관리 (MCP, CLI) | 6개 |
+| [aws](skills/aws/SKILL.md) | AWS 인프라 관리 (MCP, CLI, Steampipe) | 7개 |
 
 ### AWS 스킬
 
@@ -40,6 +41,7 @@ AWS 리소스를 MCP 서버와 CLI를 활용하여 관리하는 스킬입니다.
 - AWS Well-Architected Framework 기반 모범사례
 - EKS/Kubernetes 클러스터 관리 및 보안
 - IaC (CDK, Terraform, CloudFormation) 통합
+- Steampipe SQL 쿼리로 리소스 조회 및 보안 감사
 
 **참조 문서:**
 | 문서 | 내용 |
@@ -50,6 +52,7 @@ AWS 리소스를 MCP 서버와 CLI를 활용하여 관리하는 스킬입니다.
 | `networking-vpc.md` | VPC 설계, 서브넷, Security Group, VPC Endpoint |
 | `security-iam.md` | IAM 정책, SCP, 권한 경계, 보안 서비스 |
 | `serverless.md` | Lambda, API Gateway, Step Functions, EventBridge |
+| `steampipe.md` | SQL로 AWS 조회, 보안 감사, 비용 분석, 규정 준수 |
 
 ## 설치
 

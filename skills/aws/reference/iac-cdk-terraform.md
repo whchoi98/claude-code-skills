@@ -1,6 +1,6 @@
 # Infrastructure as Code (IaC) Reference
 
-AWS CDK와 Terraform을 활용한 인프라 코드화 가이드입니다.
+AWS CDK, Terraform, CloudFormation을 활용한 인프라 코드화 가이드입니다.
 
 ## MCP 서버 설정
 
@@ -604,7 +604,393 @@ variable "db_password" {
 
 ---
 
-## 3. IaC 선택 가이드
+## 3. AWS CloudFormation
+
+### 3.1 CloudFormation 개요
+
+CloudFormation은 AWS의 네이티브 IaC 서비스입니다.
+
+```
+CloudFormation 템플릿 (YAML/JSON)
+        ↓ create-stack / update-stack
+스택 생성/업데이트
+        ↓
+AWS 리소스 프로비저닝
+        ↓
+스택 상태 관리 (AWS 내부)
+```
+
+### 3.2 템플릿 구조
+
+```yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation 템플릿 예시'
+
+# 파라미터 정의
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+    Default: dev
+  VpcCidr:
+    Type: String
+    Default: '10.0.0.0/16'
+
+# 조건 정의
+Conditions:
+  IsProd: !Equals [!Ref Environment, prod]
+
+# 매핑 정의
+Mappings:
+  RegionMap:
+    ap-northeast-2:
+      AMI: ami-0c55b159cbfafe1f0
+    us-east-1:
+      AMI: ami-0947d2ba12ee1ff75
+
+# 리소스 정의
+Resources:
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-vpc'
+
+# 출력 정의
+Outputs:
+  VpcId:
+    Description: VPC ID
+    Value: !Ref MyVPC
+    Export:
+      Name: !Sub '${Environment}-VpcId'
+```
+
+### 3.3 CloudFormation CLI 명령어
+
+| 명령어 | 설명 |
+|--------|------|
+| `aws cloudformation create-stack` | 스택 생성 |
+| `aws cloudformation update-stack` | 스택 업데이트 |
+| `aws cloudformation delete-stack` | 스택 삭제 |
+| `aws cloudformation describe-stacks` | 스택 상태 조회 |
+| `aws cloudformation list-stack-resources` | 스택 리소스 목록 |
+| `aws cloudformation describe-stack-events` | 스택 이벤트 조회 |
+| `aws cloudformation validate-template` | 템플릿 검증 |
+| `aws cloudformation create-change-set` | 변경 세트 생성 |
+
+### 3.4 스택 생성 예시
+
+```bash
+# 스택 생성
+aws cloudformation create-stack \
+  --stack-name my-vpc-stack \
+  --template-body file://vpc-template.yaml \
+  --parameters ParameterKey=Environment,ParameterValue=dev \
+  --tags Key=Project,Value=MyProject \
+  --capabilities CAPABILITY_IAM
+
+# 스택 생성 대기
+aws cloudformation wait stack-create-complete \
+  --stack-name my-vpc-stack
+
+# 스택 업데이트
+aws cloudformation update-stack \
+  --stack-name my-vpc-stack \
+  --template-body file://vpc-template.yaml \
+  --parameters ParameterKey=Environment,ParameterValue=prod
+
+# 변경 세트 사용 (권장)
+aws cloudformation create-change-set \
+  --stack-name my-vpc-stack \
+  --change-set-name my-changes \
+  --template-body file://vpc-template.yaml
+
+aws cloudformation describe-change-set \
+  --stack-name my-vpc-stack \
+  --change-set-name my-changes
+
+aws cloudformation execute-change-set \
+  --stack-name my-vpc-stack \
+  --change-set-name my-changes
+```
+
+### 3.5 CloudFormation 리소스 예시
+
+#### VPC 및 네트워킹
+
+```yaml
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-vpc'
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Select [0, !Cidr [!Ref VpcCidr, 4, 8]]
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-public-1'
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref InternetGateway
+```
+
+#### EC2 인스턴스
+
+```yaml
+Resources:
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref InstanceRole
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Instance security group
+      VpcId: !Ref VPC
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          CidrIp: '0.0.0.0/0'
+
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', AMI]
+      InstanceType: t3.medium
+      SubnetId: !Ref PrivateSubnet1
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      IamInstanceProfile: !Ref InstanceProfile
+      # IMDSv2 필수 (보안 모범사례)
+      MetadataOptions:
+        HttpTokens: required
+        HttpPutResponseHopLimit: 2
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+            Encrypted: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-instance'
+```
+
+#### Lambda 함수
+
+```yaml
+Resources:
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-function'
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt LambdaRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      Code:
+        ZipFile: |
+          import json
+          def handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('Hello from Lambda!')
+              }
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+```
+
+### 3.6 CloudFormation 내장 함수
+
+| 함수 | 용도 | 예시 |
+|------|------|------|
+| `!Ref` | 리소스/파라미터 참조 | `!Ref MyVPC` |
+| `!GetAtt` | 리소스 속성 가져오기 | `!GetAtt MyVPC.CidrBlock` |
+| `!Sub` | 문자열 치환 | `!Sub '${Environment}-vpc'` |
+| `!Join` | 문자열 결합 | `!Join ['-', [!Ref Env, 'vpc']]` |
+| `!Select` | 리스트에서 선택 | `!Select [0, !GetAZs '']` |
+| `!Split` | 문자열 분할 | `!Split [',', !Ref Subnets]` |
+| `!If` | 조건부 값 | `!If [IsProd, 3, 1]` |
+| `!Equals` | 값 비교 | `!Equals [!Ref Env, prod]` |
+| `!FindInMap` | 매핑 조회 | `!FindInMap [RegionMap, !Ref Region, AMI]` |
+| `!ImportValue` | 다른 스택 출력 가져오기 | `!ImportValue VpcId` |
+| `!Cidr` | CIDR 블록 계산 | `!Cidr [!Ref VpcCidr, 4, 8]` |
+
+### 3.7 CloudFormation 모범사례
+
+```yaml
+# 1. 스택 정책으로 중요 리소스 보호
+# stack-policy.json
+{
+  "Statement": [
+    {
+      "Effect": "Deny",
+      "Action": "Update:Replace",
+      "Principal": "*",
+      "Resource": "LogicalResourceId/ProductionDatabase"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "Update:*",
+      "Principal": "*",
+      "Resource": "*"
+    }
+  ]
+}
+
+# 2. DeletionPolicy로 리소스 보호
+Resources:
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Retain  # 스택 삭제 시 리소스 유지
+    UpdateReplacePolicy: Snapshot  # 교체 시 스냅샷 생성
+    Properties:
+      # ...
+
+# 3. 종속성 명시
+Resources:
+  MyInstance:
+    Type: AWS::EC2::Instance
+    DependsOn: VPCGatewayAttachment  # 명시적 종속성
+    Properties:
+      # ...
+
+# 4. 헬퍼 스크립트 (cfn-init, cfn-signal)
+Resources:
+  MyInstance:
+    Type: AWS::EC2::Instance
+    Metadata:
+      AWS::CloudFormation::Init:
+        config:
+          packages:
+            yum:
+              httpd: []
+          services:
+            sysvinit:
+              httpd:
+                enabled: true
+                ensureRunning: true
+    Properties:
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource MyInstance --region ${AWS::Region}
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource MyInstance --region ${AWS::Region}
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT15M
+```
+
+### 3.8 Nested Stacks (중첩 스택)
+
+```yaml
+# 부모 스택
+Resources:
+  VPCStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3.amazonaws.com/mybucket/vpc-template.yaml
+      Parameters:
+        Environment: !Ref Environment
+        VpcCidr: !Ref VpcCidr
+
+  EC2Stack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: VPCStack
+    Properties:
+      TemplateURL: https://s3.amazonaws.com/mybucket/ec2-template.yaml
+      Parameters:
+        VpcId: !GetAtt VPCStack.Outputs.VpcId
+        SubnetId: !GetAtt VPCStack.Outputs.PrivateSubnetId
+
+Outputs:
+  VpcId:
+    Value: !GetAtt VPCStack.Outputs.VpcId
+```
+
+### 3.9 StackSets (멀티 계정/리전 배포)
+
+```bash
+# StackSet 생성
+aws cloudformation create-stack-set \
+  --stack-set-name my-stackset \
+  --template-body file://template.yaml \
+  --permission-model SERVICE_MANAGED \
+  --auto-deployment Enabled=true,RetainStacksOnAccountRemoval=false
+
+# 스택 인스턴스 배포
+aws cloudformation create-stack-instances \
+  --stack-set-name my-stackset \
+  --deployment-targets OrganizationalUnitIds=ou-xxxx-xxxxxxxx \
+  --regions ap-northeast-2 us-east-1
+```
+
+---
+
+## 4. IaC 선택 가이드
 
 ### 상황별 권장 도구
 
@@ -627,9 +1013,9 @@ variable "db_password" {
 
 ---
 
-## 4. MCP 서버 상세 활용
+## 5. MCP 서버 상세 활용
 
-### 4.1 CDK MCP 서버 (`aws-cdk`)
+### 5.1 CDK MCP 서버 (`aws-cdk`)
 
 #### 제공 도구
 
@@ -677,7 +1063,7 @@ variable "db_password" {
 
 ---
 
-### 4.2 Terraform MCP 서버 (`aws-terraform`)
+### 5.2 Terraform MCP 서버 (`aws-terraform`)
 
 #### 제공 도구
 
@@ -732,7 +1118,7 @@ variable "db_password" {
 
 ---
 
-### 4.3 CloudFormation MCP 서버 (`aws-cfn`)
+### 5.3 CloudFormation MCP 서버 (`aws-cfn`)
 
 CDK는 내부적으로 CloudFormation을 사용하므로, 배포된 스택 관리에 `aws-cfn` MCP도 활용합니다.
 
@@ -762,7 +1148,7 @@ CDK는 내부적으로 CloudFormation을 사용하므로, 배포된 스택 관�
 
 ---
 
-### 4.4 MCP 통합 활용 시나리오
+### 5.4 MCP 통합 활용 시나리오
 
 #### 시나리오 1: CDK로 새 VPC 생성
 
@@ -828,7 +1214,7 @@ CDK는 내부적으로 CloudFormation을 사용하므로, 배포된 스택 관�
 
 ---
 
-### 4.5 CLI vs MCP 선택 기준
+### 5.5 CLI vs MCP 선택 기준
 
 | 상황 | 권장 | 이유 |
 |------|------|------|
@@ -838,7 +1224,7 @@ CDK는 내부적으로 CloudFormation을 사용하므로, 배포된 스택 관�
 | 복잡한 파이프라인 | CLI | 스크립트 연동 |
 | 디버깅 | CLI + MCP | 상세 로그 확인 |
 
-### 4.6 문제 해결
+### 5.6 문제 해결
 
 #### MCP 서버 연결 오류
 

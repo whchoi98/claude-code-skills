@@ -157,17 +157,22 @@ MCP 도구를 사용하여 직접 스택을 관리할 수 있습니다:
 AWS 모범사례 및 상세 가이드는 다음 문서를 참조하세요:
 
 - **AWS Best Practices** (`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/best-practices.md`)
-  - 보안 (IAM, 네트워크, 데이터 보호)
-  - 안정성 (고가용성, 백업/복구)
-  - 성능 효율성 (컴퓨팅, 스토리지, 캐싱)
-  - 비용 최적화 (절감 전략, 미사용 리소스 정리)
-  - 운영 우수성 (IaC, 모니터링)
+  - 보안, 안정성, 성능 효율성, 비용 최적화, 운영 우수성
 
 - **IaC: CDK & Terraform** (`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/iac-cdk-terraform.md`)
-  - AWS CDK (설치, 명령어, 코드 예시, Constructs)
-  - Terraform (설치, 명령어, 코드 예시, 모듈)
-  - IaC 도구 비교 및 선택 가이드
-  - MCP 서버 활용 방법
+  - AWS CDK, Terraform, CloudFormation, MCP 활용
+
+- **EKS & Kubernetes** (`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/eks-kubernetes.md`)
+  - EKS 클러스터, kubectl, Helm, 애드온, Pod 보안, IRSA
+
+- **Networking & VPC** (`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/networking-vpc.md`)
+  - VPC 설계, 서브넷, Security Group, VPC Endpoint, Transit Gateway
+
+- **Security & IAM** (`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/security-iam.md`)
+  - IAM 정책, 역할, SCP, 권한 경계, 보안 서비스
+
+- **Serverless** (`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/serverless.md`)
+  - Lambda, API Gateway, Step Functions, EventBridge
 
 모범사례 확인이 필요할 때 위 경로의 문서를 Read 도구로 참조합니다.
 

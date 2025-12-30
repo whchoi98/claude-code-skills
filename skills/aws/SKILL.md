@@ -174,7 +174,60 @@ AWS 모범사례 및 상세 가이드는 다음 문서를 참조하세요:
 - **Serverless** (`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/serverless.md`)
   - Lambda, API Gateway, Step Functions, EventBridge
 
+- **Steampipe** (`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/steampipe.md`)
+  - SQL로 AWS 조회, 보안 감사, 비용 분석, 규정 준수 검사
+
 모범사례 확인이 필요할 때 위 경로의 문서를 Read 도구로 참조합니다.
+
+## Steampipe - SQL로 AWS 조회
+
+Steampipe는 SQL을 사용하여 AWS 리소스를 조회하는 도구입니다. 복잡한 쿼리, 규정 준수 검사, 보안 감사에 유용합니다.
+
+### 설치 및 설정
+
+```bash
+# Steampipe 설치 확인
+steampipe --version
+
+# AWS 플러그인 설치
+steampipe plugin install aws
+
+# 플러그인 확인
+steampipe plugin list
+```
+
+### 주요 쿼리 예시
+
+```bash
+# EC2 인스턴스 조회
+steampipe query "SELECT instance_id, instance_type, instance_state, tags->>'Name' as name FROM aws_ec2_instance"
+
+# 공개 S3 버킷 확인 (보안)
+steampipe query "SELECT name, acl->>'Owner' as owner FROM aws_s3_bucket WHERE bucket_policy_is_public = true"
+
+# 미사용 EBS 볼륨 (비용)
+steampipe query "SELECT volume_id, size, volume_type FROM aws_ebs_volume WHERE state = 'available'"
+
+# Security Group 0.0.0.0/0 규칙 (보안)
+steampipe query "SELECT group_id, group_name, ip_permission FROM aws_vpc_security_group_rule WHERE cidr_ip = '0.0.0.0/0'"
+
+# IAM 사용자 MFA 상태 (보안)
+steampipe query "SELECT name, mfa_enabled, password_last_used FROM aws_iam_user"
+```
+
+### Steampipe 활용 원칙
+
+1. **조회 전용**: Steampipe는 읽기 전용, 수정 불가
+2. **복잡한 쿼리**: JOIN, GROUP BY 등 SQL 기능 활용
+3. **보안 감사**: CIS Benchmark, 규정 준수 검사
+4. **비용 분석**: 미사용 리소스 탐지
+
+### 참조
+
+상세 쿼리 및 모범사례는 다음 문서를 참조하세요:
+- **Steampipe Guide** (`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/steampipe.md`)
+
+---
 
 ## AWS CLI 보조 명령
 

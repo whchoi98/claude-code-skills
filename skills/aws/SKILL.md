@@ -163,6 +163,12 @@ AWS 모범사례 및 상세 가이드는 다음 문서를 참조하세요:
   - 비용 최적화 (절감 전략, 미사용 리소스 정리)
   - 운영 우수성 (IaC, 모니터링)
 
+- **IaC: CDK & Terraform** (`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/iac-cdk-terraform.md`)
+  - AWS CDK (설치, 명령어, 코드 예시, Constructs)
+  - Terraform (설치, 명령어, 코드 예시, 모듈)
+  - IaC 도구 비교 및 선택 가이드
+  - MCP 서버 활용 방법
+
 모범사례 확인이 필요할 때 위 경로의 문서를 Read 도구로 참조합니다.
 
 ## AWS CLI 보조 명령

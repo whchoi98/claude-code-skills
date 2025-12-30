@@ -1,0 +1,635 @@
+# Infrastructure as Code (IaC) Reference
+
+AWS CDK와 Terraform을 활용한 인프라 코드화 가이드입니다.
+
+## IaC 도구 비교
+
+| 항목 | CloudFormation | AWS CDK | Terraform |
+|------|----------------|---------|-----------|
+| **언어** | YAML/JSON | TypeScript, Python, Java 등 | HCL |
+| **범위** | AWS 전용 | AWS 전용 | 멀티 클라우드 |
+| **상태 관리** | AWS 관리 | AWS 관리 (CFn 기반) | 로컬/원격 상태 파일 |
+| **추상화 수준** | 낮음 | 높음 (Constructs) | 중간 |
+| **학습 곡선** | 중간 | 낮음 (프로그래머용) | 중간 |
+
+---
+
+## 1. AWS CDK (Cloud Development Kit)
+
+### 1.1 CDK 개요
+
+CDK는 익숙한 프로그래밍 언어로 AWS 인프라를 정의할 수 있는 프레임워크입니다.
+
+```
+CDK 코드 (TypeScript/Python)
+        ↓ cdk synth
+CloudFormation 템플릿
+        ↓ cdk deploy
+AWS 리소스 생성
+```
+
+### 1.2 CDK 설치 및 초기화
+
+```bash
+# CDK CLI 설치
+npm install -g aws-cdk
+
+# 버전 확인
+cdk --version
+
+# 새 프로젝트 초기화
+mkdir my-cdk-app && cd my-cdk-app
+cdk init app --language typescript
+
+# Python 프로젝트
+cdk init app --language python
+
+# CDK Bootstrap (최초 1회)
+cdk bootstrap aws://ACCOUNT_ID/ap-northeast-2
+```
+
+### 1.3 CDK 프로젝트 구조
+
+```
+my-cdk-app/
+├── bin/
+│   └── my-cdk-app.ts      # 앱 진입점
+├── lib/
+│   └── my-cdk-app-stack.ts # 스택 정의
+├── test/
+│   └── my-cdk-app.test.ts  # 테스트
+├── cdk.json                # CDK 설정
+├── package.json
+└── tsconfig.json
+```
+
+### 1.4 CDK 기본 명령어
+
+| 명령어 | 설명 |
+|--------|------|
+| `cdk init` | 새 프로젝트 초기화 |
+| `cdk synth` | CloudFormation 템플릿 생성 |
+| `cdk diff` | 변경사항 비교 |
+| `cdk deploy` | 스택 배포 |
+| `cdk destroy` | 스택 삭제 |
+| `cdk list` | 스택 목록 |
+| `cdk doctor` | 환경 진단 |
+
+### 1.5 CDK 코드 예시
+
+#### VPC 생성 (TypeScript)
+
+```typescript
+import * as cdk from 'aws-cdk-lib';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import { Construct } from 'constructs';
+
+export class VpcStack extends cdk.Stack {
+  public readonly vpc: ec2.Vpc;
+
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // VPC 생성
+    this.vpc = new ec2.Vpc(this, 'MyVpc', {
+      maxAzs: 2,
+      cidr: '10.0.0.0/16',
+      subnetConfiguration: [
+        {
+          name: 'Public',
+          subnetType: ec2.SubnetType.PUBLIC,
+          cidrMask: 24,
+        },
+        {
+          name: 'Private',
+          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+          cidrMask: 24,
+        },
+      ],
+    });
+
+    // 출력
+    new cdk.CfnOutput(this, 'VpcId', {
+      value: this.vpc.vpcId,
+      exportName: 'VpcId',
+    });
+  }
+}
+```
+
+#### EC2 인스턴스 (TypeScript)
+
+```typescript
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as iam from 'aws-cdk-lib/aws-iam';
+
+// EC2 인스턴스 생성
+const instance = new ec2.Instance(this, 'MyInstance', {
+  vpc: vpc,
+  vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+  instanceType: ec2.InstanceType.of(
+    ec2.InstanceClass.T3,
+    ec2.InstanceSize.MEDIUM
+  ),
+  machineImage: ec2.MachineImage.latestAmazonLinux2023(),
+
+  // IMDSv2 필수 (보안 모범사례)
+  requireImdsv2: true,
+
+  // SSM 접근용 역할
+  role: new iam.Role(this, 'InstanceRole', {
+    assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
+    managedPolicies: [
+      iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'),
+    ],
+  }),
+});
+
+// EBS 암호화
+instance.instance.addPropertyOverride('BlockDeviceMappings', [{
+  DeviceName: '/dev/xvda',
+  Ebs: {
+    Encrypted: true,
+    VolumeSize: 30,
+    VolumeType: 'gp3',
+  },
+}]);
+```
+
+#### Lambda 함수 (TypeScript)
+
+```typescript
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as path from 'path';
+
+const fn = new lambda.Function(this, 'MyFunction', {
+  runtime: lambda.Runtime.PYTHON_3_12,
+  handler: 'index.handler',
+  code: lambda.Code.fromAsset(path.join(__dirname, 'lambda')),
+  timeout: cdk.Duration.seconds(30),
+  memorySize: 256,
+  environment: {
+    TABLE_NAME: table.tableName,
+  },
+});
+
+// DynamoDB 권한 부여
+table.grantReadWriteData(fn);
+```
+
+### 1.6 CDK Constructs 레벨
+
+| 레벨 | 설명 | 예시 |
+|------|------|------|
+| **L1 (Cfn)** | CloudFormation 리소스 1:1 매핑 | `CfnBucket`, `CfnInstance` |
+| **L2 (Default)** | 합리적인 기본값 포함 | `Bucket`, `Function` |
+| **L3 (Patterns)** | 여러 리소스 조합 | `ApplicationLoadBalancedFargateService` |
+
+### 1.7 CDK 모범사례
+
+```typescript
+// 1. 환경별 설정 분리
+const app = new cdk.App();
+
+new MyStack(app, 'Dev', {
+  env: { account: '111111111111', region: 'ap-northeast-2' },
+  stage: 'dev',
+});
+
+new MyStack(app, 'Prod', {
+  env: { account: '222222222222', region: 'ap-northeast-2' },
+  stage: 'prod',
+});
+
+// 2. 태그 일괄 적용
+cdk.Tags.of(app).add('Project', 'MyProject');
+cdk.Tags.of(app).add('Environment', props.stage);
+
+// 3. Aspects로 정책 강제
+import { Aspects, IAspect } from 'aws-cdk-lib';
+
+class EncryptionChecker implements IAspect {
+  public visit(node: IConstruct): void {
+    if (node instanceof s3.Bucket) {
+      if (!node.encryptionKey) {
+        Annotations.of(node).addError('S3 버킷은 반드시 암호화되어야 합니다');
+      }
+    }
+  }
+}
+
+Aspects.of(app).add(new EncryptionChecker());
+```
+
+---
+
+## 2. Terraform
+
+### 2.1 Terraform 개요
+
+Terraform은 HashiCorp의 멀티 클라우드 IaC 도구입니다.
+
+```
+Terraform 코드 (.tf)
+        ↓ terraform plan
+실행 계획 생성
+        ↓ terraform apply
+클라우드 리소스 생성
+        ↓
+상태 파일 (terraform.tfstate)
+```
+
+### 2.2 Terraform 설치
+
+```bash
+# macOS (Homebrew)
+brew install terraform
+
+# Linux (Ubuntu/Debian)
+wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+sudo apt update && sudo apt install terraform
+
+# 버전 확인
+terraform --version
+```
+
+### 2.3 Terraform 프로젝트 구조
+
+```
+my-terraform/
+├── main.tf           # 주요 리소스 정의
+├── variables.tf      # 변수 선언
+├── outputs.tf        # 출력 정의
+├── terraform.tfvars  # 변수 값 (gitignore)
+├── providers.tf      # 프로바이더 설정
+├── versions.tf       # 버전 제약
+├── modules/          # 재사용 모듈
+│   └── vpc/
+│       ├── main.tf
+│       ├── variables.tf
+│       └── outputs.tf
+└── environments/     # 환경별 설정
+    ├── dev/
+    └── prod/
+```
+
+### 2.4 Terraform 기본 명령어
+
+| 명령어 | 설명 |
+|--------|------|
+| `terraform init` | 프로젝트 초기화, 프로바이더 다운로드 |
+| `terraform plan` | 실행 계획 생성 |
+| `terraform apply` | 변경사항 적용 |
+| `terraform destroy` | 리소스 삭제 |
+| `terraform fmt` | 코드 포맷팅 |
+| `terraform validate` | 구문 검증 |
+| `terraform state list` | 상태 파일 리소스 목록 |
+| `terraform import` | 기존 리소스 가져오기 |
+
+### 2.5 Terraform 코드 예시
+
+#### 프로바이더 설정
+
+```hcl
+# versions.tf
+terraform {
+  required_version = ">= 1.0.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+
+  # 원격 상태 저장소 (권장)
+  backend "s3" {
+    bucket         = "my-terraform-state"
+    key            = "prod/terraform.tfstate"
+    region         = "ap-northeast-2"
+    encrypt        = true
+    dynamodb_table = "terraform-locks"
+  }
+}
+
+# providers.tf
+provider "aws" {
+  region = var.aws_region
+
+  default_tags {
+    tags = {
+      Project     = var.project_name
+      Environment = var.environment
+      ManagedBy   = "Terraform"
+    }
+  }
+}
+```
+
+#### VPC 생성
+
+```hcl
+# variables.tf
+variable "vpc_cidr" {
+  description = "VPC CIDR block"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "availability_zones" {
+  description = "List of availability zones"
+  type        = list(string)
+  default     = ["ap-northeast-2a", "ap-northeast-2b"]
+}
+
+# main.tf
+resource "aws_vpc" "main" {
+  cidr_block           = var.vpc_cidr
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
+  tags = {
+    Name = "${var.project_name}-vpc"
+  }
+}
+
+resource "aws_subnet" "public" {
+  count                   = length(var.availability_zones)
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = cidrsubnet(var.vpc_cidr, 8, count.index)
+  availability_zone       = var.availability_zones[count.index]
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "${var.project_name}-public-${count.index + 1}"
+    Tier = "Public"
+  }
+}
+
+resource "aws_subnet" "private" {
+  count             = length(var.availability_zones)
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index + 10)
+  availability_zone = var.availability_zones[count.index]
+
+  tags = {
+    Name = "${var.project_name}-private-${count.index + 1}"
+    Tier = "Private"
+  }
+}
+
+# outputs.tf
+output "vpc_id" {
+  description = "VPC ID"
+  value       = aws_vpc.main.id
+}
+
+output "public_subnet_ids" {
+  description = "Public subnet IDs"
+  value       = aws_subnet.public[*].id
+}
+```
+
+#### EC2 인스턴스
+
+```hcl
+# 최신 Amazon Linux 2023 AMI
+data "aws_ami" "amazon_linux_2023" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-*-x86_64"]
+  }
+}
+
+# Security Group
+resource "aws_security_group" "instance" {
+  name        = "${var.project_name}-instance-sg"
+  description = "Security group for EC2 instance"
+  vpc_id      = aws_vpc.main.id
+
+  # 아웃바운드만 허용 (인바운드는 필요시 추가)
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.project_name}-instance-sg"
+  }
+}
+
+# IAM Role
+resource "aws_iam_role" "instance" {
+  name = "${var.project_name}-instance-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ssm" {
+  role       = aws_iam_role.instance.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_instance_profile" "instance" {
+  name = "${var.project_name}-instance-profile"
+  role = aws_iam_role.instance.name
+}
+
+# EC2 Instance
+resource "aws_instance" "main" {
+  ami                    = data.aws_ami.amazon_linux_2023.id
+  instance_type          = var.instance_type
+  subnet_id              = aws_subnet.private[0].id
+  vpc_security_group_ids = [aws_security_group.instance.id]
+  iam_instance_profile   = aws_iam_instance_profile.instance.name
+
+  # IMDSv2 필수 (보안 모범사례)
+  metadata_options {
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
+    http_endpoint               = "enabled"
+  }
+
+  # EBS 암호화
+  root_block_device {
+    volume_size = 30
+    volume_type = "gp3"
+    encrypted   = true
+  }
+
+  tags = {
+    Name = "${var.project_name}-instance"
+  }
+}
+```
+
+### 2.6 Terraform 모듈
+
+```hcl
+# modules/vpc/main.tf
+variable "name" {}
+variable "cidr" {}
+variable "azs" { type = list(string) }
+
+resource "aws_vpc" "this" {
+  cidr_block = var.cidr
+  tags       = { Name = var.name }
+}
+
+output "vpc_id" {
+  value = aws_vpc.this.id
+}
+
+# 모듈 사용
+module "vpc" {
+  source = "./modules/vpc"
+
+  name = "my-vpc"
+  cidr = "10.0.0.0/16"
+  azs  = ["ap-northeast-2a", "ap-northeast-2b"]
+}
+
+# 공개 모듈 사용
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "5.0.0"
+
+  name = "my-vpc"
+  cidr = "10.0.0.0/16"
+  azs  = ["ap-northeast-2a", "ap-northeast-2b"]
+
+  private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
+
+  enable_nat_gateway = true
+  single_nat_gateway = true
+}
+```
+
+### 2.7 Terraform 모범사례
+
+```hcl
+# 1. 변수 검증
+variable "environment" {
+  type        = string
+  description = "Environment name"
+
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "Environment must be dev, staging, or prod."
+  }
+}
+
+# 2. 조건부 리소스 생성
+resource "aws_nat_gateway" "main" {
+  count = var.environment == "prod" ? length(var.azs) : 1
+
+  allocation_id = aws_eip.nat[count.index].id
+  subnet_id     = aws_subnet.public[count.index].id
+}
+
+# 3. 로컬 값 활용
+locals {
+  common_tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+# 4. 데이터 소스 활용
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+# 5. 민감한 값 보호
+variable "db_password" {
+  type      = string
+  sensitive = true
+}
+```
+
+---
+
+## 3. IaC 선택 가이드
+
+### 상황별 권장 도구
+
+| 상황 | 권장 도구 | 이유 |
+|------|----------|------|
+| AWS 전용, 빠른 시작 | CDK | 높은 추상화, 익숙한 언어 |
+| AWS 전용, 기존 CFn 경험 | CloudFormation | 학습 곡선 없음 |
+| 멀티 클라우드 | Terraform | 단일 도구로 관리 |
+| 기존 Terraform 코드 존재 | Terraform | 마이그레이션 비용 |
+| 복잡한 조건부 로직 | CDK | 프로그래밍 언어 활용 |
+
+### IaC 공통 모범사례
+
+1. **버전 관리**: 모든 IaC 코드를 Git으로 관리
+2. **코드 리뷰**: PR 기반 변경 관리
+3. **환경 분리**: dev/staging/prod 환경 분리
+4. **상태 파일 보호**: 원격 저장소 + 암호화 + 잠금
+5. **모듈화**: 재사용 가능한 모듈 작성
+6. **CI/CD 통합**: 자동화된 테스트 및 배포
+
+---
+
+## 4. MCP 서버 활용
+
+### CDK MCP 서버
+
+```json
+{
+  "mcpServers": {
+    "aws-cdk": {
+      "command": "uvx",
+      "args": ["awslabs.cdk-mcp-server@latest"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      }
+    }
+  }
+}
+```
+
+주요 기능:
+- CDK 프로젝트 분석
+- 스택 구조 파악
+- Construct 추천
+- 코드 생성 지원
+
+### Terraform MCP 서버
+
+```json
+{
+  "mcpServers": {
+    "aws-terraform": {
+      "command": "uvx",
+      "args": ["awslabs.terraform-mcp-server@latest"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      }
+    }
+  }
+}
+```
+
+주요 기능:
+- Terraform 코드 분석
+- Plan/Apply 지원
+- 상태 파일 조회
+- 모듈 추천

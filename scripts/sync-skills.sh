@@ -1,6 +1,11 @@
 #!/bin/bash
 # Sync skills from repo to Claude Code skills directory
 # Usage: ./scripts/sync-skills.sh [skill_name]
+#
+# New structure: ~/.claude/skills/<skill_name>/
+#   ├── SKILL.md
+#   └── reference/
+#       └── *.md
 
 set -e
 
@@ -15,6 +20,7 @@ mkdir -p "$SKILLS_DEST"
 sync_skill() {
     local skill_name="$1"
     local skill_dir="$SKILLS_SRC/$skill_name"
+    local dest_dir="$SKILLS_DEST/$skill_name"
 
     if [[ ! -d "$skill_dir" ]]; then
         echo "Error: Skill '$skill_name' not found in $SKILLS_SRC"
@@ -26,9 +32,28 @@ sync_skill() {
         return 1
     fi
 
-    # Copy SKILL.md as skill_name.md
-    cp "$skill_dir/SKILL.md" "$SKILLS_DEST/${skill_name}.md"
-    echo "Synced: $skill_name -> $SKILLS_DEST/${skill_name}.md"
+    # Create skill directory
+    mkdir -p "$dest_dir"
+
+    # Copy SKILL.md
+    cp "$skill_dir/SKILL.md" "$dest_dir/SKILL.md"
+    echo "Synced: $skill_name/SKILL.md"
+
+    # Copy reference directory if exists
+    if [[ -d "$skill_dir/reference" ]]; then
+        mkdir -p "$dest_dir/reference"
+        cp -r "$skill_dir/reference/"* "$dest_dir/reference/" 2>/dev/null || true
+        echo "Synced: $skill_name/reference/ ($(ls -1 "$skill_dir/reference" 2>/dev/null | wc -l) files)"
+    fi
+
+    # Copy scripts directory if exists
+    if [[ -d "$skill_dir/scripts" ]]; then
+        mkdir -p "$dest_dir/scripts"
+        cp -r "$skill_dir/scripts/"* "$dest_dir/scripts/" 2>/dev/null || true
+        echo "Synced: $skill_name/scripts/"
+    fi
+
+    echo "  -> $dest_dir/"
 }
 
 # If specific skill name provided, sync only that skill

@@ -71,7 +71,20 @@ AWS 리소스를 MCP 서버와 CLI를 활용하여 관리하는 스킬입니다.
 ### 수동 복사
 
 ```bash
-cp skills/aws/SKILL.md ~/.claude/skills/aws.md
+# 전체 스킬 디렉토리 복사
+cp -r skills/aws ~/.claude/skills/
+```
+
+### 배포 구조
+
+```
+~/.claude/skills/
+└── aws/
+    ├── SKILL.md           # 메인 스킬 (frontmatter 포함)
+    └── reference/         # 참조 문서
+        ├── best-practices.md
+        ├── eks-kubernetes.md
+        └── ...
 ```
 
 ## 새 스킬 만들기
@@ -81,7 +94,16 @@ cp skills/aws/SKILL.md ~/.claude/skills/aws.md
    mkdir -p skills/<skill-name>/reference
    ```
 
-2. `SKILL.md` 파일 작성 (메인 스킬 정의)
+2. `SKILL.md` 파일 작성 (frontmatter 필수):
+   ```markdown
+   ---
+   name: <skill-name>
+   description: 스킬 설명 (자동 활성화 키워드 포함)
+   ---
+
+   # 스킬 제목
+   ...
+   ```
 
 3. (선택) `reference/` 디렉토리에 상세 문서 추가
 
@@ -93,26 +115,31 @@ cp skills/aws/SKILL.md ~/.claude/skills/aws.md
 ## 스킬 작성 가이드라인
 
 ### SKILL.md (메인 파일)
+- **Frontmatter 필수**: `name`, `description` 정의
 - **500줄 이하** 유지 권장 (토큰 효율성)
 - 스킬 활성화 시 항상 로드됨
 - 핵심 지침, MCP 설정, 기본 명령어 포함
 
+### Frontmatter 예시
+```yaml
+---
+name: aws
+description: AWS 리소스를 MCP와 CLI로 관리. EC2, S3, Lambda, EKS, CloudFormation 등 AWS 인프라 작업 시 자동 활성화
+---
+```
+
 ### reference/ (참조 문서)
 - 필요할 때만 Read 도구로 로드 (토큰 절약)
-- **절대 경로**로 참조 필수
+- `~/.claude/skills/<skill>/reference/` 경로로 참조
 - 상세한 가이드, 모범사례, 예제 코드 포함
 
 ### 참조 문서 경로 규칙
 ```markdown
-<!-- 올바른 방법 (절대 경로) -->
-`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/best-practices.md`
-
-<!-- 잘못된 방법 (상대 경로) - 동작하지 않음 -->
-`reference/best-practices.md`
+<!-- 올바른 방법 (~/.claude/skills/ 기준) -->
+`~/.claude/skills/aws/reference/best-practices.md`
 ```
 
-> **참고**: `sync-skills.sh`는 `SKILL.md`만 `~/.claude/skills/`에 복사합니다.
-> 참조 문서는 원본 위치에서 직접 읽어야 하므로 절대 경로를 사용해야 합니다.
+> **참고**: `sync-skills.sh`는 SKILL.md와 reference/ 디렉토리를 함께 복사합니다.
 
 ## MCP 서버 설정
 

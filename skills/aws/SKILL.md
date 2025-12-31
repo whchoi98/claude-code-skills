@@ -1,3 +1,8 @@
+---
+name: aws
+description: AWS 리소스를 MCP와 CLI로 관리. EC2, S3, Lambda, EKS, CloudFormation 등 AWS 인프라 작업 시 자동 활성화
+---
+
 # AWS Management Skill
 
 AWS 리소스를 MCP(Model Context Protocol)와 CLI를 활용하여 관리하는 Claude Code Skill입니다.
@@ -156,25 +161,25 @@ MCP 도구를 사용하여 직접 스택을 관리할 수 있습니다:
 
 AWS 모범사례 및 상세 가이드는 다음 문서를 참조하세요:
 
-- **AWS Best Practices** (`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/best-practices.md`)
+- **AWS Best Practices** (`~/.claude/skills/aws/reference/best-practices.md`)
   - 보안, 안정성, 성능 효율성, 비용 최적화, 운영 우수성
 
-- **IaC: CDK & Terraform** (`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/iac-cdk-terraform.md`)
+- **IaC: CDK & Terraform** (`~/.claude/skills/aws/reference/iac-cdk-terraform.md`)
   - AWS CDK, Terraform, CloudFormation, MCP 활용
 
-- **EKS & Kubernetes** (`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/eks-kubernetes.md`)
+- **EKS & Kubernetes** (`~/.claude/skills/aws/reference/eks-kubernetes.md`)
   - EKS 클러스터, kubectl, Helm, 애드온, Pod 보안, IRSA
 
-- **Networking & VPC** (`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/networking-vpc.md`)
+- **Networking & VPC** (`~/.claude/skills/aws/reference/networking-vpc.md`)
   - VPC 설계, 서브넷, Security Group, VPC Endpoint, Transit Gateway
 
-- **Security & IAM** (`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/security-iam.md`)
+- **Security & IAM** (`~/.claude/skills/aws/reference/security-iam.md`)
   - IAM 정책, 역할, SCP, 권한 경계, 보안 서비스
 
-- **Serverless** (`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/serverless.md`)
+- **Serverless** (`~/.claude/skills/aws/reference/serverless.md`)
   - Lambda, API Gateway, Step Functions, EventBridge
 
-- **Steampipe** (`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/steampipe.md`)
+- **Steampipe** (`~/.claude/skills/aws/reference/steampipe.md`)
   - SQL로 AWS 조회, 보안 감사, 비용 분석, 규정 준수 검사
 
 모범사례 확인이 필요할 때 위 경로의 문서를 Read 도구로 참조합니다.
@@ -225,7 +230,7 @@ steampipe query "SELECT name, mfa_enabled, password_last_used FROM aws_iam_user"
 ### 참조
 
 상세 쿼리 및 모범사례는 다음 문서를 참조하세요:
-- **Steampipe Guide** (`/home/ec2-user/my_repo/claude-code-skills/skills/aws/reference/steampipe.md`)
+- **Steampipe Guide** (`~/.claude/skills/aws/reference/steampipe.md`)
 
 ---
 
